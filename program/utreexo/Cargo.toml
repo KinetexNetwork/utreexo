@@ -6,10 +6,10 @@ edition = "2021"
 
 [dependencies]
 alloy-sol-types = "0.7.2"
-bitcoin = { git = "https://github.com/MCJOHN974/rust-bitcoin", branch = "0.32.x", features = ["serde"] }
+bitcoin = { git = "https://github.com/KinetexNetwork/rust-bitcoin", branch = "0.32.x", features = ["serde"] }
 hex = "0.4.3"
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.2-testnet" }
-rustreexo = { git = "https://github.com/MCJOHN974/rustreexo", branch = "main" }
+rustreexo = { git = "https://github.com/KinetexNetwork/rustreexo", branch = "main" }
 bitcoin_hashes ={ version = "0.14", features = ["serde"] }
 sha2 = "0.10.6"
 serde = "1.0.210"
