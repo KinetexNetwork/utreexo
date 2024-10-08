@@ -1,7 +1,7 @@
-# UTEEXO SP1
+# UTREEXO SP1
 
 ## Introduction
-This project aims to build a SP1 based circuit, which will prove mutations on utreexo[TODO:link] 
+This project aims to build a SP1 based circuit, which will prove mutations on [utreexo](https://bitcoinops.org/en/topics/utreexo/) 
 data structure -- Merkle forest based accumulator of utxos -- bitcoin unspent transaction outputs.
 
 ## General Structure
