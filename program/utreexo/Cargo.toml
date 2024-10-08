@@ -1,0 +1,15 @@
+[workspace]
+[package]
+version = "0.1.0"
+name = "btcx-program-utreexo"
+edition = "2021"
+
+[dependencies]
+alloy-sol-types = "0.7.2"
+bitcoin = { path = "../../../rust-bitcoin/bitcoin", features = ["serde"] }
+hex = "0.4.3"
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.2-testnet" }
+rustreexo = { path = "../../../rustreexo" }
+bitcoin_hashes ={ version = "0.14", features = ["serde"] }
+sha2 = "0.10.6"
+serde = "1.0.210"
