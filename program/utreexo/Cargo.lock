@@ -1207,6 +1207,7 @@ dependencies = [
 [[package]]
 name = "rustreexo"
 version = "0.3.0"
+source = "git+https://github.com/MCJOHN974/rustreexo?branch=main#ba026ef9e6ef0c67f2fd0a8ff76fe3c6d9eab186"
 dependencies = [
  "bitcoin_hashes",
  "serde",
