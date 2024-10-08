@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 alloy-sol-types = "0.7.2"
-bitcoin = { path = "../../../rust-bitcoin/bitcoin", features = ["serde"] }
+bitcoin = { git = "https://github.com/MCJOHN974/rust-bitcoin", branch = "0.32.x", features = ["serde"] }
 hex = "0.4.3"
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.2-testnet" }
 rustreexo = { path = "../../../rustreexo" }
