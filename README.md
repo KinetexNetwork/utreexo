@@ -5,7 +5,7 @@ This project aims to build a SP1 based circuit, which will prove mutations on [u
 data structure -- Merkle forest based accumulator of utxos -- bitcoin unspent transaction outputs.
 
 ## General Structure
-Utreexo structure was already implemented in rust -- rustreexo crate. Thus, we want to use it, and 
+Utreexo structure was already implemented in rust -- [rustreexo](https://crates.io/crates/rustreexo) crate. Thus, we want to use it, and 
 wrap to SP1 circuit to generate the proofs, which will be validated onchain. For this circuit we
 want to have block and previous utreexo as inputs, parse block and update utreexo in the circuit,
 and updated utreexo will be the output of the circuit.
