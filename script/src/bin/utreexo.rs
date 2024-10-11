@@ -77,6 +77,21 @@ async fn get_block(height: u32) -> Result<Block, Box<dyn Error>> {
     Ok(block)
 }
 
+fn get_expected_bytes(height: u32) -> Vec<u8> {
+    let acc_file = File::open(format!("../acc-data/acc-after-{}.txt", height)).unwrap();
+    let acc_after = Pollard::deserialize(acc_file).unwrap();
+    let acc_roots: Vec<NodeHash> = acc_after
+        .get_roots()
+        .to_vec()
+        .iter()
+        .map(|rc| rc.get_data())
+        .collect();
+    let acc_roots_bytes: Vec<[u8; 32]> = acc_roots.iter().map(|hash| *hash.deref()).collect();
+    let acc_roots_bytes_flat: Vec<u8> = acc_roots_bytes.concat();
+    let expected_bytes = PublicValuesTuple::abi_encode(&(acc_roots_bytes_flat,));
+    expected_bytes
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     utils::setup_logger();
@@ -107,22 +122,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if args.execute {
         let client = ProverClient::new();
         let public_values = client.execute(ELF, stdin).run().unwrap();
-
-        let acc_file = File::open("../acc-data/acc-after-1.txt")?;
-        let acc_after = Pollard::deserialize(acc_file).unwrap();
-        let acc_roots: Vec<NodeHash> = acc_after
-            .get_roots()
-            .to_vec()
-            .iter()
-            .map(|rc| rc.get_data())
-            .collect();
-        let acc_roots_bytes: Vec<[u8; 32]> = acc_roots.iter().map(|hash| *hash.deref()).collect();
-        let acc_roots_bytes_flat: Vec<u8> = acc_roots_bytes.concat();
-        let expected_bytes = PublicValuesTuple::abi_encode(&(acc_roots_bytes_flat,));
         let actual_bytes = public_values.0.as_slice();
 
+        let expected_bytes = get_expected_bytes(1);
+        let unexpected_bytes = get_expected_bytes(2);
+        assert_ne!(actual_bytes, unexpected_bytes);
         assert_eq!(actual_bytes, expected_bytes);
-
         println!("Succesfully executed");
     } else {
         let client = ProverClient::new();
