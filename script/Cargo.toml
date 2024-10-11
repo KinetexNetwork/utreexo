@@ -18,6 +18,7 @@ rustreexo = { git = "https://github.com/KinetexNetwork/rustreexo", branch = "mai
 bitcoin = { git = "https://github.com/KinetexNetwork/rust-bitcoin", branch = "0.32.x", features = ["serde"] }
 reqwest = { version = "0.12.8", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
+clap = { version = "4.0", features = ["derive", "env"] }
 
 [build-dependencies]
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", rev = "459fac7" }

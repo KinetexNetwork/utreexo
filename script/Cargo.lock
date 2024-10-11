@@ -6028,6 +6028,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-sol-types 0.8.7",
  "bitcoin",
+ "clap",
  "hex",
  "reqwest 0.12.8",
  "rustreexo",
