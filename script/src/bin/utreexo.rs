@@ -1,3 +1,4 @@
+use alloy_sol_types::{sol, SolType};
 use bitcoin::TxIn;
 use bitcoin::{block, Block};
 use clap::Parser;
@@ -10,6 +11,13 @@ use sp1_sdk::{utils, ProverClient, SP1Stdin};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
+use std::ops::Deref;
+
+type PublicValuesTuple = sol! {
+    (
+        bytes, // acc roots
+    )
+};
 
 /// The arguments for the command.
 #[derive(Parser, Debug)]
@@ -99,8 +107,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if args.execute {
         let client = ProverClient::new();
         let public_values = client.execute(ELF, stdin).run().unwrap();
+
+        let acc_file = File::open("../acc-data/acc-after-1.txt")?;
+        let acc_after = Pollard::deserialize(acc_file).unwrap();
+        let acc_roots: Vec<NodeHash> = acc_after
+            .get_roots()
+            .to_vec()
+            .iter()
+            .map(|rc| rc.get_data())
+            .collect();
+        let acc_roots_bytes: Vec<[u8; 32]> = acc_roots.iter().map(|hash| *hash.deref()).collect();
+        let acc_roots_bytes_flat: Vec<u8> = acc_roots_bytes.concat();
+        let expected_bytes = PublicValuesTuple::abi_encode(&(acc_roots_bytes_flat,));
+        let actual_bytes = public_values.0.as_slice();
+
+        assert_eq!(actual_bytes, expected_bytes);
+
         println!("Succesfully executed");
-        println!("output: {:#?}", public_values);
     } else {
         let client = ProverClient::new();
         let (pk, vk) = client.setup(ELF);
