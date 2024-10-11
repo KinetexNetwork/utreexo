@@ -1,22 +1,23 @@
 [package]
 version = "0.1.0"
-name = "btcx-script"
+name = "utreexo-script"
 edition = "2021"
 
 [[bin]]
-name = "verify"
-path = "src/bin/verify.rs"
+name = "utreexo"
+path = "src/bin/utreexo.rs"
 
-[[bin]]
-name = "retarget"
-path = "src/bin/retarget.rs"
 
 [dependencies]
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.2-testnet" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "459fac7" }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-alloy-sol-types = "0.7.2"
+alloy-sol-types = "0.8.7"
 hex = "0.4.3"
+rustreexo = { git = "https://github.com/KinetexNetwork/rustreexo", branch = "main" }
+bitcoin = { git = "https://github.com/KinetexNetwork/rust-bitcoin", branch = "0.32.x", features = ["serde"] }
+reqwest = { version = "0.12.8", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", rev = "v1.0.2-testnet" }
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", rev = "459fac7" }
