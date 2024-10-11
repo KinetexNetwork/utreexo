@@ -1,0 +1,42 @@
+Block {
+    header: BlockHeader {
+        version: 1,
+        prev_blockhash: 000000009700ff3494f215c412cd8c0ceabf1deb0df03ce39bcfc223b769d3c4,
+        merkle_root: 2b9905f06583c01454f10f720b5709e3b667c9dd3d9efc423c97b7e70afdc0c9,
+        time: 1231603171,
+        bits: 486604799,
+        nonce: 230744328,
+    },
+    txdata: [
+        Transaction {
+            version: 1,
+            lock_time: PackedLockTime(
+                0,
+            ),
+            input: [
+                TxIn {
+                    previous_output: OutPoint {
+                        txid: 0000000000000000000000000000000000000000000000000000000000000000,
+                        vout: 4294967295,
+                    },
+                    script_sig: Script(OP_PUSHBYTES_4 ffff001d OP_PUSHBYTES_1 36),
+                    sequence: Sequence(
+                        4294967295,
+                    ),
+                    witness: Witness {
+                        content: [],
+                        witness_elements: 0,
+                        last: 0,
+                        second_to_last: 0,
+                    },
+                },
+            ],
+            output: [
+                TxOut {
+                    value: 5000000000,
+                    script_pubkey: Script(OP_PUSHBYTES_65 04b949980bb46aee11510519b4af0dfcc3cc7464b3ede15f184b7c8126a98bf6d6e698eaf16b938814174a002ba24daa03e59a7c0927248517b581c09ec70f216e OP_CHECKSIG),
+                },
+            ],
+        },
+    ],
+}
