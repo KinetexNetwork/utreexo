@@ -10,8 +10,11 @@ use sp1_sdk::network::client;
 use sp1_sdk::{utils, ProverClient, SP1Stdin};
 use std::collections::HashMap;
 use std::error::Error;
-use std::fs::File;
+use std::fs::{self, File};
 use std::ops::Deref;
+
+static ACC_BEFORE_PATH: &'static str = "../acc-data/acc-before-2.txt";
+static ACC_AFTER_PATH: &'static str = "../acc-data/acc-before-3.txt";
 
 type PublicValuesTuple = sol! {
     (
@@ -77,8 +80,16 @@ async fn get_block(height: u32) -> Result<Block, Box<dyn Error>> {
     Ok(block)
 }
 
-fn get_expected_bytes(height: u32) -> Vec<u8> {
-    let acc_file = File::open(format!("../acc-data/acc-after-{}.txt", height)).unwrap();
+fn get_expected_bytes() -> Vec<u8> {
+    get_output_bytes(ACC_AFTER_PATH)
+}
+
+fn get_unexpected_bytes() -> Vec<u8> {
+    get_output_bytes(ACC_BEFORE_PATH)
+}
+
+fn get_output_bytes(path: &str) -> Vec<u8> {
+    let acc_file = File::open(path).unwrap();
     let acc_after = Pollard::deserialize(acc_file).unwrap();
     let acc_roots: Vec<NodeHash> = acc_after
         .get_roots()
@@ -104,11 +115,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         std::process::exit(1);
     }
 
-    let height = 1;
-    let acc_file = File::open("../acc-data/acc-before-1.txt")?;
-    // let acc = Pollard::deserialize(reader).unwrap();
-    let owned_acc = OwnedPollard::default();
-    // let owned_acc = OwnedPollard::from_pollard(acc);
+    let height = 2;
+    let serialized_acc_before = fs::read(ACC_BEFORE_PATH).unwrap();
     let block: Block = get_block(height).await?;
     let input_leaf_hashes: HashMap<TxIn, (NodeHash, CompactLeafData)> = Default::default();
 
@@ -116,7 +124,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     stdin.write::<Block>(&block);
     stdin.write::<u32>(&height);
-    stdin.write::<OwnedPollard>(&owned_acc);
+    stdin.write::<Vec<u8>>(&serialized_acc_before);
     stdin.write::<HashMap<TxIn, (NodeHash, CompactLeafData)>>(&input_leaf_hashes);
 
     if args.execute {
@@ -124,8 +132,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let public_values = client.execute(ELF, stdin).run().unwrap();
         let actual_bytes = public_values.0.as_slice();
 
-        let expected_bytes = get_expected_bytes(1);
-        let unexpected_bytes = get_expected_bytes(2);
+        let expected_bytes = get_expected_bytes();
+        let unexpected_bytes = get_unexpected_bytes();
         assert_ne!(actual_bytes, unexpected_bytes);
         assert_eq!(actual_bytes, expected_bytes);
         println!("Succesfully executed");
