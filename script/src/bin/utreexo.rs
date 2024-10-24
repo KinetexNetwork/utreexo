@@ -1,26 +1,25 @@
 use alloy_sol_types::{sol, SolType};
+use bitcoin::consensus::Encodable;
 use bitcoin::TxIn;
 use bitcoin::{block, Block};
 use clap::Parser;
+use regex::Regex;
 use reqwest;
 use rustreexo::accumulator::node_hash::NodeHash;
 use rustreexo::accumulator::pollard::{OwnedPollard, Pollard};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sp1_sdk::network::client;
 use sp1_sdk::{utils, ProverClient, SP1Stdin};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::BufReader;
+use std::io::Cursor;
 use std::ops::Deref;
-
-// TODO: one of this variables determines all other, so to work properly we need to be careful
-// setting them. It will be nice to make all of them automatically calculated based on just one.
-static HEIGHT: u32 = 586;
-static ACC_BEFORE_PATH: &'static str = "block-3txs/acc-beffore.txt";
-static ACC_AFTER_PATH: &'static str = "block-3txs/acc-after.txt";
-static INPUT_LEAF_HASHES_PATH: &'static str = "block-3txs/input-leaf-hashes.txt";
-
+use std::time;
+use std::time::{Duration, Instant};
+use tokio::time::error::Elapsed;
 type PublicValuesTuple = sol! {
     (
         bytes, // acc roots
@@ -85,14 +84,6 @@ async fn get_block(height: u32) -> Result<Block, Box<dyn Error>> {
     Ok(block)
 }
 
-fn get_expected_bytes() -> Vec<u8> {
-    get_output_bytes(ACC_AFTER_PATH)
-}
-
-fn get_unexpected_bytes() -> Vec<u8> {
-    get_output_bytes(ACC_BEFORE_PATH)
-}
-
 fn get_output_bytes(path: &str) -> Vec<u8> {
     let acc_file = File::open(path).unwrap();
     let acc_after = Pollard::deserialize(acc_file).unwrap();
@@ -108,8 +99,7 @@ fn get_output_bytes(path: &str) -> Vec<u8> {
     expected_bytes
 }
 
-fn get_input_leaf_hashes() -> HashMap<TxIn, (NodeHash, CompactLeafData)> {
-    let file_path = INPUT_LEAF_HASHES_PATH;
+fn get_input_leaf_hashes(file_path: &str) -> HashMap<TxIn, (NodeHash, CompactLeafData)> {
     let file = File::open(file_path).unwrap();
     let reader = BufReader::new(file);
 
@@ -122,49 +112,160 @@ fn get_input_leaf_hashes() -> HashMap<TxIn, (NodeHash, CompactLeafData)> {
     res
 }
 
+#[derive(Debug, Default, Deserialize, Serialize)]
+struct Metrics {
+    pub prove_duration: Duration,
+    pub acc_size: u64,
+    pub block_size: u64,
+    pub block_height: u64,
+    pub tx_count: u64,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+struct MetricsCycles {
+    pub total_instructions: u64,
+    pub acc_size: u64,
+    pub block_size: u64,
+    pub block_height: u64,
+    pub tx_count: u64,
+}
+
+async fn calculate_current_height(num_tx: u64) -> Result<u32, Box<dyn Error>> {
+    let filename = format!("block-{num_tx}txs/block.txt");
+    let contents = fs::read_to_string(filename)?;
+
+    // Regular expression to find the prev_blockhash
+    let re = Regex::new(r"prev_blockhash:\s*([0-9a-fA-F]{64}),")?;
+    let mut captures_iter = re.captures_iter(&contents);
+
+    // Ensure prev_blockhash occurs exactly once
+    let capture = captures_iter.next();
+    if capture.is_none() || captures_iter.next().is_some() {
+        panic!("prev_blockhash occurs not exactly once in the file");
+    }
+
+    // Extract the block hash
+    let prev_blockhash = &capture.unwrap()[1];
+    println!("Previous Block Hash: {}", prev_blockhash);
+
+    // Use the BlockCypher API to get the block height
+    let url = format!(
+        "https://api.blockcypher.com/v1/btc/main/blocks/{}",
+        prev_blockhash
+    );
+    let response = reqwest::get(&url).await?;
+    let json: Value = response.json().await?;
+
+    // Extract and print the block height
+    if let Some(height) = json["height"].as_u64() {
+        Ok(height as u32 + 1)
+    } else {
+        panic!("Block height not found for hash: {}", prev_blockhash);
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     utils::setup_logger();
-
-    // Parse the command line arguments.
     let args = Args::parse();
-
     if args.execute == args.prove {
         eprintln!("Error: You must specify either --execute or --prove");
         std::process::exit(1);
     }
 
-    let serialized_acc_before = fs::read(ACC_BEFORE_PATH).unwrap();
-    let block: Block = get_block(HEIGHT).await?;
-    let input_leaf_hashes: HashMap<TxIn, (NodeHash, CompactLeafData)> = get_input_leaf_hashes();
+    let mut available_tx_counts = //vec![6];
+     vec![1, 2, 3, 4, 6, 5, 13];
+    available_tx_counts.sort();
+    for tx_count in available_tx_counts {
+        let height: u32 = calculate_current_height(tx_count).await?;
+        println!("Calculated height: {height}");
+        let acc_before_path: String = format!("block-{tx_count}txs/acc-beffore.txt");
+        let acc_after_path: String = format!("block-{tx_count}txs/acc-after.txt");
+        let input_leaf_hashes_path: String = format!("block-{tx_count}txs/input-leaf-hashes.txt");
 
-    let mut stdin = SP1Stdin::new();
+        let serialized_acc_before = fs::read(&acc_before_path).unwrap();
+        let block: Block = get_block(height).await?;
+        let input_leaf_hashes: HashMap<TxIn, (NodeHash, CompactLeafData)> =
+            get_input_leaf_hashes(&input_leaf_hashes_path);
 
-    stdin.write::<Block>(&block);
-    stdin.write::<u32>(&HEIGHT);
-    stdin.write::<Vec<u8>>(&serialized_acc_before);
-    stdin.write::<HashMap<TxIn, (NodeHash, CompactLeafData)>>(&input_leaf_hashes);
+        let mut stdin = SP1Stdin::new();
 
-    if args.execute {
-        let client = ProverClient::new();
-        let public_values = client.execute(ELF, stdin).run().unwrap();
-        let actual_bytes = public_values.0.as_slice();
+        stdin.write::<Block>(&block);
+        stdin.write::<u32>(&height);
+        stdin.write::<Vec<u8>>(&serialized_acc_before);
+        stdin.write::<HashMap<TxIn, (NodeHash, CompactLeafData)>>(&input_leaf_hashes);
 
-        let expected_bytes = get_expected_bytes();
-        let unexpected_bytes = get_unexpected_bytes();
-        assert_ne!(actual_bytes, unexpected_bytes);
-        assert_eq!(actual_bytes, expected_bytes);
-        println!("Succesfully executed");
-    } else {
-        let client = ProverClient::new();
-        let (pk, vk) = client.setup(ELF);
-        let proof = client
-            .prove(&pk, stdin)
-            .run()
-            .expect("failed to generate proof");
-        println!("Successfully generated proof!");
-        client.verify(&proof, &vk).expect("failed to verify proof");
-        println!("Successfully verified proof!");
+        if args.execute {
+            let client = ProverClient::new();
+            let public_values = client.execute(ELF, stdin).run().unwrap();
+            let actual_bytes = public_values.0.as_slice();
+            let expected_bytes = get_output_bytes(&acc_after_path);
+            let unexpected_bytes = get_output_bytes(&acc_before_path);
+            assert_ne!(actual_bytes, unexpected_bytes);
+            assert_eq!(actual_bytes, expected_bytes);
+            println!("Succesfully executed. Generating report.");
+
+            let cycles = public_values.1.total_instruction_count();
+            let acc_size = fs::File::open(acc_before_path)
+                .unwrap()
+                .metadata()
+                .unwrap()
+                .len();
+            let mut block_str: Vec<u8> = Default::default();
+            let _ = get_block(height)
+                .await?
+                .consensus_encode(&mut block_str)
+                .unwrap();
+            let block_size = block_str.len();
+
+            let metrics = MetricsCycles {
+                total_instructions: cycles,
+                acc_size: acc_size,
+                block_size: block_size as u64,
+                block_height: height as u64,
+                tx_count: tx_count as u64,
+            };
+
+            let file = File::create(format!("../metrics-cycles/{}.json", tx_count))?;
+            serde_json::to_writer_pretty(file, &metrics)?;
+            println!("Report saved to ../metrics-cycles/{}.json", tx_count);
+        } else {
+            let client = ProverClient::new();
+            let (pk, vk) = client.setup(ELF);
+
+            let start = Instant::now();
+            let proof = client
+                .prove(&pk, stdin)
+                .run()
+                .expect("failed to generate proof");
+            let duration = start.elapsed();
+            let acc_size = fs::File::open(&acc_before_path)
+                .unwrap()
+                .metadata()
+                .unwrap()
+                .len();
+            let mut block_str: Vec<u8> = Default::default();
+            let _ = get_block(height)
+                .await?
+                .consensus_encode(&mut block_str)
+                .unwrap();
+            let block_size = block_str.len();
+
+            let metrics = Metrics {
+                prove_duration: duration,
+                acc_size: acc_size,
+                block_size: block_size as u64,
+                block_height: height as u64,
+                tx_count: tx_count as u64,
+            };
+
+            let file = File::create(format!("../metrics/{}.json", tx_count))?;
+            serde_json::to_writer_pretty(file, &metrics)?;
+
+            println!("Successfully generated proof!");
+            client.verify(&proof, &vk).expect("failed to verify proof");
+            println!("Successfully verified proof!");
+        }
     }
     Ok(())
 }
