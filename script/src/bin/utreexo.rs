@@ -16,10 +16,10 @@ use std::ops::Deref;
 
 // TODO: one of this variables determines all other, so to work properly we need to be careful
 // setting them. It will be nice to make all of them automatically calculated based on just one.
-static HEIGHT: u32 = 170;
-static ACC_BEFORE_PATH: &'static str = "block-2txs/acc-beffore.txt";
-static ACC_AFTER_PATH: &'static str = "block-2txs/acc-after.txt";
-static INPUT_LEAF_HASHES_PATH: &'static str = "block-2txs/input-leaf-hashes.txt";
+static HEIGHT: u32 = 586;
+static ACC_BEFORE_PATH: &'static str = "block-3txs/acc-beffore.txt";
+static ACC_AFTER_PATH: &'static str = "block-3txs/acc-after.txt";
+static INPUT_LEAF_HASHES_PATH: &'static str = "block-3txs/input-leaf-hashes.txt";
 
 type PublicValuesTuple = sol! {
     (
