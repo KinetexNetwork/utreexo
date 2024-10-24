@@ -11,10 +11,15 @@ use sp1_sdk::{utils, ProverClient, SP1Stdin};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::{self, File};
+use std::io::BufReader;
 use std::ops::Deref;
 
-static ACC_BEFORE_PATH: &'static str = "../acc-data/acc-before-2.txt";
-static ACC_AFTER_PATH: &'static str = "../acc-data/acc-before-3.txt";
+// TODO: one of this variables determines all other, so to work properly we need to be careful
+// setting them. It will be nice to make all of them automatically calculated based on just one.
+static HEIGHT: u32 = 170;
+static ACC_BEFORE_PATH: &'static str = "block-2txs/acc-beffore.txt";
+static ACC_AFTER_PATH: &'static str = "block-2txs/acc-after.txt";
+static INPUT_LEAF_HASHES_PATH: &'static str = "block-2txs/input-leaf-hashes.txt";
 
 type PublicValuesTuple = sol! {
     (
@@ -103,6 +108,20 @@ fn get_output_bytes(path: &str) -> Vec<u8> {
     expected_bytes
 }
 
+fn get_input_leaf_hashes() -> HashMap<TxIn, (NodeHash, CompactLeafData)> {
+    let file_path = INPUT_LEAF_HASHES_PATH;
+    let file = File::open(file_path).unwrap();
+    let reader = BufReader::new(file);
+
+    let deserialized_struct: Vec<(TxIn, (NodeHash, CompactLeafData))> =
+        serde_json::from_reader(reader).unwrap();
+    let mut res: HashMap<TxIn, (NodeHash, CompactLeafData)> = Default::default();
+    for (k, v) in deserialized_struct {
+        res.insert(k, v);
+    }
+    res
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     utils::setup_logger();
@@ -115,15 +134,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         std::process::exit(1);
     }
 
-    let height = 2;
     let serialized_acc_before = fs::read(ACC_BEFORE_PATH).unwrap();
-    let block: Block = get_block(height).await?;
-    let input_leaf_hashes: HashMap<TxIn, (NodeHash, CompactLeafData)> = Default::default();
+    let block: Block = get_block(HEIGHT).await?;
+    let input_leaf_hashes: HashMap<TxIn, (NodeHash, CompactLeafData)> = get_input_leaf_hashes();
 
     let mut stdin = SP1Stdin::new();
 
     stdin.write::<Block>(&block);
-    stdin.write::<u32>(&height);
+    stdin.write::<u32>(&HEIGHT);
     stdin.write::<Vec<u8>>(&serialized_acc_before);
     stdin.write::<HashMap<TxIn, (NodeHash, CompactLeafData)>>(&input_leaf_hashes);
 
