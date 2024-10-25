@@ -131,7 +131,7 @@ struct MetricsCycles {
 }
 
 async fn calculate_current_height(num_tx: u64) -> Result<u32, Box<dyn Error>> {
-    let filename = format!("block-{num_tx}txs/block.txt");
+    let filename = format!("../acc-data/block-{num_tx}txs/block.txt");
     let contents = fs::read_to_string(filename)?;
 
     // Regular expression to find the prev_blockhash
@@ -164,6 +164,32 @@ async fn calculate_current_height(num_tx: u64) -> Result<u32, Box<dyn Error>> {
     }
 }
 
+fn get_block_heights(data_path: &str) -> Result<Vec<u64>, Box<dyn Error>> {
+    let mut heights = Vec::new();
+    let re = Regex::new(r"^block-(\d+)txs$").unwrap();
+
+    for entry in fs::read_dir(data_path)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_dir() {
+            if let Some(folder_name) = path.file_name().and_then(|n| n.to_str()) {
+                if let Some(caps) = re.captures(folder_name) {
+                    if let Some(num_match) = caps.get(1) {
+                        if let Ok(height) = num_match.as_str().parse::<u64>() {
+                            heights.push(height);
+                        } else {
+                            eprintln!("Warning: Couldn't parse height from '{}'", folder_name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(heights)
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     utils::setup_logger();
@@ -172,16 +198,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         eprintln!("Error: You must specify either --execute or --prove");
         std::process::exit(1);
     }
-
-    let mut available_tx_counts = //vec![6];
-     vec![1, 2, 3, 4, 6, 5, 13];
+    let mut available_tx_counts = get_block_heights("../acc/data/").unwrap();
     available_tx_counts.sort();
     for tx_count in available_tx_counts {
         let height: u32 = calculate_current_height(tx_count).await?;
         println!("Calculated height: {height}");
-        let acc_before_path: String = format!("block-{tx_count}txs/acc-beffore.txt");
-        let acc_after_path: String = format!("block-{tx_count}txs/acc-after.txt");
-        let input_leaf_hashes_path: String = format!("block-{tx_count}txs/input-leaf-hashes.txt");
+        let acc_before_path: String = format!("../acc-data/block-{tx_count}txs/acc-beffore.txt");
+        let acc_after_path: String = format!("../acc-data/block-{tx_count}txs/acc-after.txt");
+        let input_leaf_hashes_path: String =
+            format!("../acc-data/block-{tx_count}txs/input-leaf-hashes.txt");
 
         let serialized_acc_before = fs::read(&acc_before_path).unwrap();
         let block: Block = get_block(height).await?;
