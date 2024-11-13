@@ -6,7 +6,7 @@ use clap::Parser;
 use regex::Regex;
 use reqwest;
 use rustreexo::accumulator::node_hash::NodeHash;
-use rustreexo::accumulator::pollard::{OwnedPollard, Pollard};
+use rustreexo::accumulator::pollard::Pollard;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sp1_sdk::network::client;
@@ -198,8 +198,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         eprintln!("Error: You must specify either --execute or --prove");
         std::process::exit(1);
     }
-    let mut available_tx_counts = get_block_heights("../acc/data/").unwrap();
+    let mut available_tx_counts = get_block_heights("../acc-data/").unwrap();
     available_tx_counts.sort();
+    available_tx_counts = vec![850];
     for tx_count in available_tx_counts {
         let height: u32 = calculate_current_height(tx_count).await?;
         println!("Calculated height: {height}");
@@ -209,6 +210,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             format!("../acc-data/block-{tx_count}txs/input-leaf-hashes.txt");
 
         let serialized_acc_before = fs::read(&acc_before_path).unwrap();
+
+        let acc_before = Pollard::deserialize(Cursor::new(&serialized_acc_before)).unwrap();
+
         let block: Block = get_block(height).await?;
         let input_leaf_hashes: HashMap<TxIn, (NodeHash, CompactLeafData)> =
             get_input_leaf_hashes(&input_leaf_hashes_path);
@@ -217,7 +221,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         stdin.write::<Block>(&block);
         stdin.write::<u32>(&height);
-        stdin.write::<Vec<u8>>(&serialized_acc_before);
+        stdin.write::<Pollard>(&acc_before);
         stdin.write::<HashMap<TxIn, (NodeHash, CompactLeafData)>>(&input_leaf_hashes);
 
         if args.execute {
@@ -251,9 +255,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 tx_count: tx_count as u64,
             };
 
-            let file = File::create(format!("../metrics-cycles/{}.json", tx_count))?;
+            let file = File::create(format!("../metrics-cycles-new/{}.json", tx_count))?;
             serde_json::to_writer_pretty(file, &metrics)?;
-            println!("Report saved to ../metrics-cycles/{}.json", tx_count);
+            println!("Report saved to ../metrics-cycles-new/{}.json", tx_count);
         } else {
             let client = ProverClient::new();
             let (pk, vk) = client.setup(ELF);
